@@ -1,0 +1,328 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.ide{display:flex;flex-direction:column;height:680px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary)}
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);flex-shrink:0}
+.topbar-title{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-right:auto}
+.btn{font-family:var(--font-mono);font-size:12px;padding:4px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);cursor:pointer}
+.btn:hover{background:var(--color-background-secondary)}
+.btn.run{border-color:#1D9E75;color:#1D9E75}.btn.run:hover{background:#E1F5EE}
+.btn.step{border-color:#378ADD;color:#378ADD}.btn.step:hover{background:#E6F1FB}
+.btn.reset{border-color:#D85A30;color:#D85A30}.btn.reset:hover{background:#FAECE7}
+.body{display:grid;grid-template-columns:1fr 210px;flex:1;overflow:hidden;min-height:0}
+.left{display:flex;flex-direction:column;overflow:hidden;border-right:0.5px solid var(--color-border-tertiary)}
+.editor-wrap{display:flex;flex:1;overflow:hidden;min-height:0}
+.lnums{padding:8px 6px;color:var(--color-text-tertiary);font-family:var(--font-mono);font-size:12px;line-height:1.6;text-align:right;min-width:30px;user-select:none;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);overflow:hidden}
+textarea{flex:1;padding:8px;font-family:var(--font-mono);font-size:12px;line-height:1.6;border:none;outline:none;resize:none;background:transparent;color:var(--color-text-primary)}
+.pane-hdr{font-family:var(--font-mono);font-size:10px;color:var(--color-text-tertiary);padding:4px 10px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);letter-spacing:0.05em;text-transform:uppercase;flex-shrink:0}
+.output-area{flex-shrink:0;height:160px;border-top:0.5px solid var(--color-border-tertiary);display:flex;flex-direction:column;overflow:hidden}
+.output-log{flex:1;overflow-y:auto;padding:6px 10px;font-family:var(--font-mono);font-size:11px;line-height:1.7;color:var(--color-text-primary)}
+.output-log .log-cycle{color:var(--color-text-tertiary)}
+.output-log .log-instr{color:#378ADD;font-weight:500}
+.output-log .log-reg{color:#1D9E75}
+.output-log .log-mem{color:#BA7517}
+.output-log .log-err{color:#D85A30}
+.output-log .log-done{color:#1D9E75;font-weight:500}
+.output-log .log-asm{color:var(--color-text-tertiary)}
+.right{display:flex;flex-direction:column;overflow:hidden}
+.reg-list{flex:1;overflow-y:auto;padding:4px 8px}
+.reg-row{display:flex;justify-content:space-between;padding:2px 0;font-family:var(--font-mono);font-size:11px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.rn{color:var(--color-text-secondary);min-width:48px}
+.rv{color:var(--color-text-primary);font-weight:500}
+.rv.chg{color:#1D9E75}
+.stats{flex-shrink:0;border-top:0.5px solid var(--color-border-tertiary);display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--color-border-tertiary)}
+.stat{background:var(--color-background-secondary);padding:5px 8px}
+.sl{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.04em}
+.sv{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--color-text-primary);margin-top:1px}
+.sv.g{color:#1D9E75}.sv.b{color:#378ADD}
+</style>
+
+<div class="ide">
+  <div class="topbar">
+    <span class="topbar-title">RV32I Simulator — Your Verilog Design</span>
+    <button class="btn run" onclick="runAll()">Run</button>
+    <button class="btn step" onclick="stepOne()">Step</button>
+    <button class="btn reset" onclick="resetSim()">Reset</button>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="pane-hdr">assembly editor</div>
+      <div class="editor-wrap">
+        <div class="lnums" id="lnums">1</div>
+        <textarea id="asmcode" spellcheck="false" oninput="updateLines()">addi x1, x0, 10
+addi x2, x0, 5
+add  x3, x1, x2
+sub  x4, x1, x2
+and  x5, x1, x2
+or   x6, x1, x2
+xor  x7, x1, x2
+slt  x8, x2, x1
+addi x9, x0, 4
+sw   x1, 0(x9)
+lw   x10, 0(x9)</textarea>
+      </div>
+      <div class="output-area">
+        <div class="pane-hdr">output — execution trace</div>
+        <div class="output-log" id="outlog"><span class="log-asm">Ready — press Run or Step</span></div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="pane-hdr">register file</div>
+      <div class="reg-list" id="regs"></div>
+      <div class="stats">
+        <div class="stat"><div class="sl">PC</div><div class="sv b" id="s-pc">0x00000000</div></div>
+        <div class="stat"><div class="sl">Cycle</div><div class="sv" id="s-cy">0</div></div>
+        <div class="stat"><div class="sl">Instr</div><div class="sv" id="s-instr">—</div></div>
+        <div class="stat"><div class="sl">ALU</div><div class="sv g" id="s-alu">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RNAMES=['zero','ra','sp','gp','tp','t0','t1','t2','s0','s1','a0','a1','a2','a3','a4','a5','a6','a7','s2','s3','s4','s5','s6','s7','s8','s9','s10','s11','t3','t4','t5','t6'];
+let cpu=null, prevRegs=new Array(32).fill(0), logLines=[];
+
+function h(n){return'0x'+((n>>>0).toString(16).padStart(8,'0').toUpperCase())}
+function hshort(n){return'0x'+((n>>>0).toString(16).toUpperCase())}
+
+function updateLines(){
+  const n=document.getElementById('asmcode').value.split('\n').length;
+  document.getElementById('lnums').innerHTML=Array.from({length:n},(_,i)=>i+1).join('<br>');
+}
+updateLines();
+
+function parseReg(s){
+  s=s.trim().toLowerCase();
+  if(s.startsWith('x'))return parseInt(s.slice(1));
+  const i=RNAMES.indexOf(s);return i>=0?i:-1;
+}
+function signExt(v,b){const s=1<<(b-1);return(v&(s-1))-(v&s?s:0);}
+
+function assemble(src){
+  const lines=src.split('\n');
+  const labels={},instrs=[];
+  let addr=0;
+  for(let line of lines){
+    line=line.replace(/#.*/,'').trim();
+    if(!line)continue;
+    if(line.endsWith(':'))labels[line.slice(0,-1)]=addr;
+    else{instrs.push({line,addr});addr+=4;}
+  }
+  const out=[];
+  for(let{line,addr} of instrs){
+    const enc=encInstr(line,addr,labels);
+    if(enc===null)return{error:'Cannot assemble: '+line};
+    out.push({word:enc,src:line.trim()});
+  }
+  return{ok:out};
+}
+
+function encInstr(line,pc,labels){
+  const t=line.trim().replace(/,/g,' ').replace(/\s+/g,' ').split(' ');
+  const op=t[0].toLowerCase();
+  const r=i=>parseReg(t[i]);
+  const im=i=>{const v=t[i];if(labels[v]!==undefined)return labels[v]-pc;return parseInt(v)||0;};
+  const mem=i=>{const m=t[i].match(/(-?\d+)\((.+)\)/);if(!m)return{imm:0,base:0};return{imm:parseInt(m[1]),base:parseReg(m[2])};};
+  switch(op){
+    case'add':case'sub':case'and':case'or':case'xor':case'sll':case'srl':case'sra':case'slt':case'sltu':{
+      const rd=r(1),rs1=r(2),rs2=r(3);
+      const f3s={'add':0,'sub':0,'sll':1,'slt':2,'sltu':3,'xor':4,'srl':5,'sra':5,'or':6,'and':7};
+      const f7s={'sub':0x20,'sra':0x20};
+      return((f7s[op]||0)<<25)|(rs2<<20)|(rs1<<15)|((f3s[op]||0)<<12)|(rd<<7)|0x33;
+    }
+    case'addi':case'slti':case'xori':case'ori':case'andi':case'slli':case'srli':case'srai':{
+      const rd=r(1),rs1=r(2);
+      const f3s={'addi':0,'slti':2,'xori':4,'ori':6,'andi':7,'slli':1,'srli':5,'srai':5};
+      const f7s={'srai':0x20};
+      let i=im(3);
+      if(op==='slli'||op==='srli'||op==='srai')i=(i&0x1F)|((f7s[op]||0)<<5);
+      else i=i&0xFFF;
+      return(i<<20)|(rs1<<15)|((f3s[op])<<12)|(rd<<7)|0x13;
+    }
+    case'lw':case'lh':case'lb':case'lhu':case'lbu':{
+      const rd=r(1);const{imm:off,base}=mem(2);
+      const f3s={'lb':0,'lh':1,'lw':2,'lbu':4,'lhu':5};
+      return((off&0xFFF)<<20)|(base<<15)|((f3s[op])<<12)|(rd<<7)|0x03;
+    }
+    case'sw':case'sh':case'sb':{
+      const{imm:off,base}=mem(2);const rs2=r(1);
+      const f3s={'sb':0,'sh':1,'sw':2};
+      const i=off&0xFFF;
+      return((i>>5)<<25)|(rs2<<20)|(base<<15)|((f3s[op])<<12)|((i&0x1F)<<7)|0x23;
+    }
+    case'beq':case'bne':case'blt':case'bge':case'bltu':case'bgeu':{
+      const rs1=r(1),rs2=r(2);const off=im(3)&0x1FFF;
+      const f3s={'beq':0,'bne':1,'blt':4,'bge':5,'bltu':6,'bgeu':7};
+      return(((off>>12)&1)<<31)|(((off>>5)&0x3F)<<25)|(rs2<<20)|(rs1<<15)|((f3s[op])<<12)|(((off>>1)&0xF)<<8)|(((off>>11)&1)<<7)|0x63;
+    }
+    case'jal':{const rd=r(1);const off=im(2)&0x1FFFFF;return(((off>>20)&1)<<31)|(((off>>1)&0x3FF)<<21)|(((off>>11)&1)<<20)|(((off>>12)&0xFF)<<12)|(rd<<7)|0x6F;}
+    case'jalr':{const rd=r(1),rs1=r(2);const i=im(3)&0xFFF;return(i<<20)|(rs1<<15)|(rd<<7)|0x67;}
+    case'lui':{const rd=r(1);return((im(2)&0xFFFFF)<<12)|(rd<<7)|0x37;}
+    case'auipc':{const rd=r(1);return((im(2)&0xFFFFF)<<12)|(rd<<7)|0x17;}
+    case'nop':return 0x00000013;
+    default:return null;
+  }
+}
+
+function getImm(instr){
+  const op=instr&0x7F,i=instr>>>0;
+  switch(op){
+    case 0x13:case 0x03:case 0x67:return signExt((i>>20)&0xFFF,12);
+    case 0x23:return signExt(((i>>25)<<5)|((i>>7)&0x1F),12);
+    case 0x63:return signExt(((i>>31)<<12)|(((i>>7)&1)<<11)|(((i>>25)&0x3F)<<5)|(((i>>8)&0xF)<<1),13);
+    case 0x37:case 0x17:return i&0xFFFFF000;
+    case 0x6F:return signExt(((i>>31)<<20)|(((i>>12)&0xFF)<<12)|(((i>>20)&1)<<11)|(((i>>21)&0x3FF)<<1),21);
+    default:return 0;
+  }
+}
+
+function aluC(ALUOp,f3,f7){
+  if(ALUOp===0)return 2;if(ALUOp===1)return 6;
+  const m={0:f7===0x20?6:2,7:0,6:1,4:3,1:4,5:f7===0x20?8:5,2:7,3:7};
+  return m[f3]??2;
+}
+
+function aluOp(a,b,c){
+  a=a|0;b=b|0;
+  switch(c){
+    case 0:return(a&b)>>>0;case 1:return(a|b)>>>0;case 2:return(a+b)>>>0;
+    case 6:return(a-b)>>>0;case 3:return(a^b)>>>0;case 4:return(a<<(b&31))>>>0;
+    case 5:return(a>>>((b>>>0)&31))>>>0;case 7:return a<b?1:0;
+    case 8:return(a>>(b&31))>>>0;default:return 0;
+  }
+}
+
+function instrName(instr){
+  const op=instr&0x7F,f3=(instr>>12)&7,f7=(instr>>25)&0x7F;
+  if(op===0x33){const n=['ADD','SLL','SLT','SLTU','XOR','SRL','OR','AND'];return f3===0&&f7===0x20?'SUB':f3===5&&f7===0x20?'SRA':n[f3]||'?';}
+  if(op===0x13){const n=['ADDI',null,'SLTI','SLTIU','XORI',null,'SRLI','ORI','ANDI'];return f3===5&&f7===0x20?'SRAI':f3===1?'SLLI':n[f3]||'ADDI';}
+  if(op===0x03)return['LB','LH','LW',null,'LBU','LHU'][f3]||'LOAD';
+  if(op===0x23)return['SB','SH','SW'][f3]||'STORE';
+  if(op===0x63)return['BEQ','BNE',null,null,'BLT','BGE'][f3]||'BR';
+  if(op===0x37)return'LUI';if(op===0x17)return'AUIPC';
+  if(op===0x6F)return'JAL';if(op===0x67)return'JALR';
+  return'NOP';
+}
+
+function initCPU(prog){
+  return{regs:new Array(32).fill(0),pc:0,mem:new Array(65536).fill(0),imem:prog,halted:false,cycle:0};
+}
+
+function stepCPU(cpu,log){
+  if(cpu.halted)return;
+  const pc=cpu.pc,idx=pc>>2;
+  if(idx<0||idx>=cpu.imem.length){cpu.halted=true;if(log)addLog('<span class="log-done">Halted: end of program</span>');return;}
+  const entry=cpu.imem[idx];
+  const instr=entry.word>>>0;
+  const srcLine=entry.src;
+  if(instr===0){cpu.halted=true;if(log)addLog('<span class="log-done">Halted: zero instruction</span>');return;}
+
+  const op=instr&0x7F,rd=(instr>>7)&0x1F,f3=(instr>>12)&7,rs1=(instr>>15)&0x1F,rs2=(instr>>20)&0x1F,f7=(instr>>25)&0x7F;
+  const immV=getImm(instr);
+  let RegWrite=0,MemRead=0,MemWrite=0,MemToReg=0,ALUSrc=0,Branch=0,Jump=0,ALUOp=0;
+  switch(op){
+    case 0x33:RegWrite=1;ALUOp=2;break;case 0x13:RegWrite=1;ALUSrc=1;ALUOp=2;break;
+    case 0x03:RegWrite=1;MemRead=1;MemToReg=1;ALUSrc=1;break;case 0x23:MemWrite=1;ALUSrc=1;break;
+    case 0x63:Branch=1;ALUOp=1;break;case 0x6F:RegWrite=1;Jump=1;break;
+    case 0x67:RegWrite=1;Jump=1;ALUSrc=1;break;case 0x37:case 0x17:RegWrite=1;ALUSrc=1;break;
+  }
+  const ctrl=aluC(ALUOp,f3,f7);
+  const A=cpu.regs[rs1]>>>0,B=cpu.regs[rs2]>>>0,aluB=ALUSrc?(immV>>>0):B;
+  let res=op===0x17?(pc+immV)>>>0:op===0x37?immV>>>0:aluOp(A,aluB,ctrl);
+  const zero=(res===0)?1:0;
+  const pc4=(pc+4)>>>0,brT=(pc+immV)>>>0,jalrT=(A+immV)&~1;
+  const brTaken=Branch&&zero&&f3===0;
+  let nextPC=brTaken?brT:pc4;
+  if(Jump)nextPC=op===0x67?jalrT>>>0:brT;
+
+  let memData=0,memStr='';
+  if(MemRead){
+    const ma=res>>>0;
+    memData=((cpu.mem[ma]||0)|((cpu.mem[ma+1]||0)<<8)|((cpu.mem[ma+2]||0)<<16)|((cpu.mem[ma+3]||0)<<24))>>>0;
+    memStr=` | MEM[${hshort(ma)}]→${hshort(memData)}`;
+  }
+  if(MemWrite){
+    const ma=res>>>0,sv=B>>>0;
+    cpu.mem[ma]=sv&0xFF;cpu.mem[ma+1]=(sv>>8)&0xFF;cpu.mem[ma+2]=(sv>>16)&0xFF;cpu.mem[ma+3]=(sv>>24)&0xFF;
+    memStr=` | MEM[${hshort(ma)}]←${hshort(sv)}`;
+  }
+  const wdata=Jump?pc4:(MemToReg?memData:res);
+  const prevVal=cpu.regs[rd];
+  if(RegWrite&&rd!==0)cpu.regs[rd]=wdata>>>0;
+  cpu.regs[0]=0;cpu.pc=nextPC;cpu.cycle++;
+
+  const name=instrName(instr);
+  if(log){
+    let regStr='';
+    if(RegWrite&&rd!==0)regStr=` <span class="log-reg">x${rd}(${RNAMES[rd]})=${hshort(wdata)}</span>`;
+    const memHtml=memStr?`<span class="log-mem">${memStr}</span>`:'';
+    const brStr=brTaken?` <span class="log-mem">→branch ${hshort(nextPC)}</span>`:'';
+    addLog(`<span class="log-cycle">[${String(cpu.cycle).padStart(3,' ')}]</span> <span class="log-asm">PC=${hshort(pc)}</span> <span class="log-instr">${name.padEnd(6)}</span>${regStr}${memHtml}${brStr}`);
+  }
+
+  document.getElementById('s-pc').textContent=h(nextPC);
+  document.getElementById('s-cy').textContent=cpu.cycle;
+  document.getElementById('s-instr').textContent=name;
+  document.getElementById('s-alu').textContent=hshort(res);
+  renderRegs();
+}
+
+function addLog(html){
+  logLines.push(html);
+  const el=document.getElementById('outlog');
+  el.innerHTML=logLines.join('\n');
+  el.scrollTop=el.scrollHeight;
+}
+
+function renderRegs(){
+  document.getElementById('regs').innerHTML=cpu.regs.map((v,i)=>{
+    const ch=v!==prevRegs[i];
+    return`<div class="reg-row"><span class="rn">x${i} ${RNAMES[i]}</span><span class="rv${ch?' chg':''}">${hshort(v)}</span></div>`;
+  }).join('');
+  prevRegs=[...cpu.regs];
+}
+
+function buildAndInit(){
+  const src=document.getElementById('asmcode').value;
+  const res=assemble(src);
+  if(res.error){addLog(`<span class="log-err">Assembler error: ${res.error}</span>`);return false;}
+  prevRegs=new Array(32).fill(0);
+  cpu=initCPU(res.ok);
+  document.getElementById('s-pc').textContent='0x00000000';
+  document.getElementById('s-cy').textContent='0';
+  document.getElementById('s-instr').textContent='—';
+  document.getElementById('s-alu').textContent='—';
+  renderRegs();
+  return true;
+}
+
+function runAll(){
+  logLines=[];document.getElementById('outlog').innerHTML='';
+  if(!buildAndInit())return;
+  addLog(`<span class="log-asm">Assembled ${cpu.imem.length} instructions — running...</span>`);
+  let guard=0;
+  while(!cpu.halted&&cpu.pc>>2<cpu.imem.length&&guard++<10000)stepCPU(cpu,true);
+  addLog(`<span class="log-done">Done — ${cpu.cycle} cycles | Final registers:</span>`);
+  const nonzero=cpu.regs.map((v,i)=>v!==0&&i!==0?`x${i}(${RNAMES[i]})=${hshort(v)}`:null).filter(Boolean);
+  if(nonzero.length)addLog(`<span class="log-reg">${nonzero.join('  ')}</span>`);
+}
+
+function stepOne(){
+  if(!cpu){logLines=[];document.getElementById('outlog').innerHTML='';if(!buildAndInit())return;addLog('<span class="log-asm">Stepping...</span>');}
+  if(cpu.halted)return;
+  stepCPU(cpu,true);
+}
+
+function resetSim(){
+  cpu=null;logLines=[];prevRegs=new Array(32).fill(0);
+  document.getElementById('outlog').innerHTML='<span class="log-asm">Reset — press Run or Step</span>';
+  document.getElementById('s-pc').textContent='0x00000000';
+  document.getElementById('s-cy').textContent='0';
+  document.getElementById('s-instr').textContent='—';
+  document.getElementById('s-alu').textContent='—';
+  document.getElementById('regs').innerHTML='';
+}
+
+buildAndInit();
+</script>
