@@ -80,7 +80,7 @@ Verified in Vivado 2023.2 behavioral simulation:
 
 An interactive RV32I assembly IDE that simulates the exact Verilog datapath logic in the browser.
 
-Live demo: [AbhayPK-247.github.io/rv32i-simulator](https://AbhayPK-247.github.io/rv32i-simulator)
+Live demo: [AbhayPK-247.github.io/rv32i-simulator](https://abhaypk-247.github.io/rv32i-simulator)
 
 Features:
 - Write RV32I assembly directly
