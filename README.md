@@ -91,4 +91,37 @@ Features:
 ---
 
 ## Tapeout Flow
-      
+RTL (Vivado simulation)
+→ Genus synthesis (.sdc + standard cell library)
+→ Innovus place & route
+→ DRC / LVS signoff
+→ GDS tapeout
+
+---
+
+## Files
+rv32i-simulator/
+├── src/
+│   ├── rv32i_top.v
+│   ├── rv32i_pc.v
+│   ├── rv32i_imem.v
+│   ├── rv32i_dmem.v
+│   ├── rv32i_reg_file.v
+│   ├── rv32i_alu.v
+│   ├── rv32i_alu_control.v
+│   ├── rv32i_control_unit.v
+│   └── rv32i_imm_gen.v
+├── sim/
+│   └── rv32i_tb.v
+├── index.html        ← browser simulator
+└── README.md
+
+---
+
+## Tools Used
+
+- Vivado 2023.2 — RTL simulation
+- Cadence Genus — synthesis (in progress)
+- Cadence Innovus — place & route (upcoming)
+
+---
